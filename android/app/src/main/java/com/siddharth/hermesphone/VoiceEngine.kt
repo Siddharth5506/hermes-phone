@@ -16,10 +16,11 @@ import android.content.SharedPreferences
 class VoiceEngine(private val context: Context, private val ui: Ui) :
     HermesConnection.Listener, WakeWordDetector.Listener {
 
+    override fun onWakeDetected() {} // wake handled via AudioEngine callback path
+
     interface Ui {
         fun onStateChanged(state: String)
         fun onTranscript(text: String, partial: Boolean)
-        fun onLatency(sample: Pair<String, Long>)
     }
 
     companion object {

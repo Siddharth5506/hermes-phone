@@ -56,8 +56,7 @@ class TtsPlayer(context: Context) {
         }.also { it.start() }
     }
 
-    fun hasPending(): Boolean = !queue.isEmpty() || track.playbackHeadPosition > 0 &&
-            (track.bufferSizeInBytes - track.availableFramesToWrite() * 2) > 0
+    fun hasPendingAudio(): Boolean = !queue.isEmpty() || track.playbackHeadPosition > 0
 
     /** Immediate interruption — drain everything (spec §34). */
     fun stopNow() {

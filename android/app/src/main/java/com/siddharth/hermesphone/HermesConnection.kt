@@ -7,9 +7,9 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import okhttp3.*
 import okio.ByteString
-import okio.ByteString.Companion.toByteString
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import kotlin.math.min
 
 /**
  * Persistent connection to Hermes PC (spec §27-29).
