@@ -30,10 +30,23 @@ jobs:
       - name: Download openWakeWord models into assets
         run: |
           mkdir -p android/app/src/main/assets
-          curl -sL https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/hey_jarvis_v0.1.onnx \
+          set -euo pipefail
+          echo "Downloading hey_jarvis model..."
+          curl -sL -f https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/hey_jarvis_v0.1.onnx \
             -o android/app/src/main/assets/hey_jarvis_v0.1.onnx
-          curl -sL https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/openwakeword_features_model.onnx \
+          echo "Downloading features model..."
+          curl -sL -f https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/openwakeword_features_model.onnx \
             -o android/app/src/main/assets/openwakeword_features_model.onnx
+          # Verify downloads are actual model files (not HTML error pages)
+          for f in android/app/src/main/assets/*.onnx; do
+            size=$(stat -c%s "$f")
+            if [ "$size" -lt 100000 ]; then
+              echo "ERROR: $f is only $size bytes — download failed"
+              head -c 200 "$f"
+              exit 1
+            fi
+            echo "$f OK ($size bytes)"
+          done
           ls -la android/app/src/main/assets/
 
       - name: Build debug APK

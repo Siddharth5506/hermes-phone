@@ -58,10 +58,13 @@ class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
         }
         val saveBtn = Button(this).apply { text = "Save settings" }
         saveBtn.setOnClickListener {
+            val code = codeInput.text.toString()
+            val eps = epInput.text.toString().split(",").map { it.trim() }.filter { it.isNotBlank() }
             VoiceService.engine?.let { e ->
-                e.savePairing(codeInput.text.toString())
-                e.saveEndpoints(epInput.text.toString().split(",").map { it.trim() }.filter { it.isNotBlank() })
-            }
+                e.savePairing(code)
+                e.saveEndpoints(eps)
+                runOnUiThread { saveBtn.text = "Saved!" }
+            } ?: runOnUiThread { saveBtn.text = "Start Jarvis first to save" }
         }
         root.addView(codeInput)
         root.addView(epInput)
