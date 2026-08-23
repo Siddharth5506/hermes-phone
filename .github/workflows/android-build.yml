@@ -34,9 +34,9 @@ jobs:
           echo "Downloading hey_jarvis model..."
           curl -sL -f https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/hey_jarvis_v0.1.onnx \
             -o android/app/src/main/assets/hey_jarvis_v0.1.onnx
-          echo "Downloading features model..."
-          curl -sL -f https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/openwakeword_features_model.onnx \
-            -o android/app/src/main/assets/openwakeword_features_model.onnx
+          echo "Downloading embedding model..."
+          curl -sL -f https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/embedding_model.onnx \
+            -o android/app/src/main/assets/embedding_model.onnx
           # Verify downloads are actual model files (not HTML error pages)
           for f in android/app/src/main/assets/*.onnx; do
             size=$(stat -c%s "$f")

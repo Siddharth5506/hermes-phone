@@ -34,7 +34,7 @@ class WakeWordDetector(private val context: Context) {
         const val FRAME_SAMPLES = 128          // 8ms chunks fed by AudioEngine
         const val FRAMES_PER_INFERENCE = 16    // run detector every 128ms
         const val MODEL_FILE = "hey_jarvis_v0.1.onnx"
-        const val EMBEDDING_MODEL = "openwakeword_features_model.onnx"
+        const val EMBEDDING_MODEL = "embedding_model.onnx"
         const val THRESHOLD = 0.5f
     }
 
