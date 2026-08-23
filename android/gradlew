@@ -1,0 +1,3 @@
+#!/bin/sh
+# Gradle wrapper bootstrap (jar fetched by CI setup-gradle or first run)
+exec java -classpath "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain "$@"

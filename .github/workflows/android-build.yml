@@ -1,0 +1,47 @@
+name: Build Hermes Phone APK
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android-build.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Gradle 8.7
+        run: |
+          curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt
+          echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
+
+      - name: Download openWakeWord models into assets
+        run: |
+          mkdir -p android/app/src/main/assets
+          curl -sL https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/hey_jarvis_v0.1.onnx \
+            -o android/app/src/main/assets/hey_jarvis_v0.1.onnx
+          curl -sL https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/openwakeword_features_model.onnx \
+            -o android/app/src/main/assets/openwakeword_features_model.onnx
+          ls -la android/app/src/main/assets/
+
+      - name: Build debug APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-phone-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk

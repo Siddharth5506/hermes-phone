@@ -1,0 +1,4 @@
+<resources>
+    <style name="Theme.HermesPhone" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+    <style name="Theme.HermesPhone.NoActionBar" parent="Theme.HermesPhone" />
+</resources>
