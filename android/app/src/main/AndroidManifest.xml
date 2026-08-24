@@ -10,6 +10,7 @@
 
     <application
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Hermes Phone"
         android:theme="@style/Theme.HermesPhone">

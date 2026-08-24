@@ -197,7 +197,14 @@ async def speak(ws, text):
 
 
 async def main(port):
-    async with websockets.serve(handle, "0.0.0.0", port):
+    async def handler_with_path(ws):
+        # Filter: only accept /voice path (what Android client uses)
+        if getattr(ws, "path", "") != "/voice":
+            log.warning("reject path=%s", getattr(ws, "path", "?"))
+            return
+        await handle(ws)
+    
+    async with websockets.serve(handler_with_path, "0.0.0.0", port):
         log.info("Hermes voice server listening on ws://0.0.0.0:%d/voice", port)
         await asyncio.Future()
 
