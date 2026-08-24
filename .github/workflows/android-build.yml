@@ -37,6 +37,9 @@ jobs:
           echo "Downloading embedding model..."
           curl -sL -f https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/embedding_model.onnx \
             -o android/app/src/main/assets/embedding_model.onnx
+          echo "Downloading melspectrogram model..."
+          curl -sL -f https://github.com/dscripka/openWakeWord/releases/download/v0.5.1/melspectrogram.onnx \
+            -o android/app/src/main/assets/melspectrogram.onnx
           # Verify downloads are actual model files (not HTML error pages)
           for f in android/app/src/main/assets/*.onnx; do
             size=$(stat -c%s "$f")
