@@ -7,6 +7,7 @@ import java.nio.FloatBuffer
 import kotlin.math.cos
 import kotlin.math.PI
 import kotlin.math.ln
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -105,7 +106,7 @@ class WakeWordDetector(private val context: Context) {
     private val melFilters: Array<FloatArray> by lazy { buildMelFilterbank() }
 
     private fun hzToMel(f: Float): Float = 2595f * kotlin.math.log10(1f + f / 700f)
-    private fun melToHz(m: Float): Float = (700f * ((10.0.pow(m / 2595f)) - 1f)).toFloat()
+    private fun melToHz(m: Float): Float = (700.0 * (10.0.pow(m / 2595.0) - 1.0)).toFloat()
 
     private fun buildMelFilterbank(): Array<FloatArray> {
         val nFftBins = N_FFT / 2 + 1
