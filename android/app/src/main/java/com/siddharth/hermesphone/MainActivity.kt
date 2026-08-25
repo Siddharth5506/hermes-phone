@@ -43,8 +43,7 @@ class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
         debugView = TextView(this).apply {
             textSize = 12f
             setTextColor(Color.LTGRAY)
-            // allow horizontal scrolling of long debug lines
-            setHorizontallyScrolling(true)
+            setSingleLine(false)  // multi-line debug: all stats visible
         }
 
         root.addView(title)

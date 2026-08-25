@@ -62,14 +62,16 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
         override fun run() {
             val w = if (::wake.isInitialized) wake else null
             val c = if (::conn.isInitialized) conn else null
+            // Multi-line, no horizontal scroll: everything visible on small screens.
             val line = buildString {
-                append("state=").append(state)
-                append(" | ws=").append(c?.state ?: "?")
-                append(" | frames=").append(framesSeen)
-                append(" | rms=").append("%.0f".format(lastSpeechRms))
-                append(" | score=").append("%.3f".format(w?.lastScore ?: 0f))
-                append(" | armed=").append(w?.armed ?: false)
-                lastWakeErr?.let { append(" | ERR=").append(it) }
+                append("ws=").append(c?.state ?: "?")
+                append("  state=").append(state)
+                append("\nframes=").append(framesSeen)
+                append("  rms=").append("%.0f".format(lastSpeechRms))
+                append("\nscore=").append("%.3f".format(w?.lastScore ?: 0f))
+                append("  armed=").append(w?.armed ?: false)
+                append("  inf=").append(w?.inferenceCount ?: 0L)
+                lastWakeErr?.let { append("\nERR=").append(it) }
             }
             ui.onDebug(line)
             dbgHandler.postDelayed(this, 500)
