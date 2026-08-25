@@ -86,6 +86,19 @@ class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
         toggleBtn.setOnClickListener { toggleVoice() }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Register this screen as the live update target (fixes deaf-UI bug).
+        VoiceService.activeUi = this
+        // If engine already running, force an immediate state refresh.
+        VoiceService.engine?.let { onStateChanged(it.state) }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (VoiceService.activeUi === this) VoiceService.activeUi = null
+    }
+
     private fun toggleVoice() {
         if (VoiceService.engine != null) {
             startService(Intent(this, VoiceService::class.java).setAction("STOP"))

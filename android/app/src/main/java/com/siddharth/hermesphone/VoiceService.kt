@@ -21,7 +21,12 @@ class VoiceService : Service(), VoiceEngine.Ui {
         const val CHANNEL_ID = "hermes_voice"
         const val NOTIF_ID = 1
         @Volatile var engine: VoiceEngine? = null
+        /** Activity that should receive live UI updates (set in onResume, cleared in onPause). */
+        @Volatile var activeUi: VoiceEngine.Ui? = null
     }
+
+    /** Forward UI callbacks to whichever screen is visible (or notification if none). */
+    private fun uiTarget(): VoiceEngine.Ui? = activeUi
 
     override fun onCreate() {
         super.onCreate()
@@ -78,9 +83,14 @@ class VoiceService : Service(), VoiceEngine.Ui {
             else -> state.lowercase().replaceFirstChar { it.uppercase() }
         }
         startForeground(NOTIF_ID, buildNotification(label))
+        activeUi?.onStateChanged(state)
     }
 
-    override fun onTranscript(text: String, partial: Boolean) {}
+    override fun onTranscript(text: String, partial: Boolean) {
+        activeUi?.onTranscript(text, partial)
+    }
 
-    override fun onDebug(line: String) {} // debug overlay lives in MainActivity only
+    override fun onDebug(line: String) {
+        activeUi?.onDebug(line)
+    }
 }
