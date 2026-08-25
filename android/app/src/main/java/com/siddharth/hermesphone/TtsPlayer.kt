@@ -12,7 +12,7 @@ import kotlin.math.min
  * Starts speaking on the FIRST chunk (spec §21) — never waits for full audio.
  * Supports interruption: stop() drains immediately (spec §34 "Jarvis, stop").
  */
-class TtsPlayer(context: Context) {
+class TtsPlayer(private val context: Context) {
 
     private val track = AudioTrack.Builder()
         .setAudioAttributes(
