@@ -2,6 +2,7 @@ package com.siddharth.hermesphone
 
 import android.content.Context
 import android.media.*
+import android.os.Bundle
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
@@ -57,6 +58,42 @@ class TtsPlayer(context: Context) {
     }
 
     fun hasPendingAudio(): Boolean = !queue.isEmpty() || track.playbackHeadPosition > 0
+
+    /** Reset playback bookkeeping for a new response stream (keeps AudioTrack alive). */
+    fun resetStream() {
+        queue.clear()
+        startedSpeaking = false
+        try { track.pause(); track.flush(); track.play() } catch (_: Exception) {}
+        playing = false
+        writerThread = null
+    }
+
+    /**
+     * Fallback: synthesize locally with Android's TextToSpeech when the server
+     * sends no streamed audio. Callback fires when speech completes.
+     */
+    fun speakLocal(text: String, onDone: () -> Unit) {
+        if (localTts == null) {
+            localTts = android.speech.tts.TextToSpeech(context) { st ->
+                localReady = st == android.speech.tts.TextToSpeech.SUCCESS
+            }
+        }
+        Thread {
+            var waited = 0
+            while (localReady == null && waited < 3000) { Thread.sleep(100); waited += 100 }
+            val engine = localTts
+            if (engine == null || localReady != true) { onDone(); return@Thread }
+            engine.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(id: String?) {}
+                override fun onDone(id: String?) { if (id == "jarvis_local") onDone() }
+                override fun onError(id: String?) { if (id == "jarvis_local") onDone() }
+            })
+            engine.speak(text, android.speech.tts.TextToSpeech.QUEUE_FLUSH, Bundle(), "jarvis_local")
+        }.start()
+    }
+
+    private var localTts: android.speech.tts.TextToSpeech? = null
+    @Volatile private var localReady: Boolean? = null
 
     /** Immediate interruption — drain everything (spec §34). */
     fun stopNow() {

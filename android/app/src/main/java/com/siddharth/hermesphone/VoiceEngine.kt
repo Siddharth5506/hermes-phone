@@ -194,15 +194,23 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
     }
 
     override fun onResponseText(text: String) {
-        tts?.speak(text) {
-            ttsEndAt = System.currentTimeMillis()
-            setState(STANDBY)
+        // Server streams TTS chunks via onTtsChunk; local synthesis is only a fallback
+        // when the server sends no audio within 1.5s.
+        tts?.let { t ->
+            t.resetStream()
+            Thread {
+                Thread.sleep(1500)
+                if (!t.startedSpeaking && state == THINKING) {
+                    // No server TTS arrived — synthesize locally so the user still hears a reply.
+                    t.speakLocal(text) { ttsEndAt = System.currentTimeMillis(); setState(STANDBY) }
+                }
+            }.start()
         }
         setState(SPEAKING)
     }
 
-    override fun onTtsChunk(pcm: ByteArray) { tts?.feed(pcm) }
-    override fun onTtsEnd() { tts?.markEnded() }
+    override fun onTtsChunk(pcm: ByteArray) { tts?.enqueue(pcm) }
+    override fun onTtsEnd() { /* stream end; playback finishes naturally */ }
 
     fun interrupt() {
         tts?.stopNow()

@@ -81,4 +81,6 @@ class VoiceService : Service(), VoiceEngine.Ui {
     }
 
     override fun onTranscript(text: String, partial: Boolean) {}
+
+    override fun onDebug(line: String) {} // debug overlay lives in MainActivity only
 }
