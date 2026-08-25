@@ -2,6 +2,8 @@ package com.siddharth.hermesphone
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Handler
+import android.os.Looper
 
 /**
  * Voice session state machine (spec §33).
@@ -21,6 +23,8 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
     interface Ui {
         fun onStateChanged(state: String)
         fun onTranscript(text: String, partial: Boolean)
+        /** Live debug line — shown in the debug overlay. Called at most ~2x/sec. */
+        fun onDebug(line: String)
     }
 
     companion object {
@@ -48,6 +52,30 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
     private val prefs: SharedPreferences =
         context.getSharedPreferences("hermes", Context.MODE_PRIVATE)
 
+    // Debug loop: pushes live mic/wake/conn stats to the UI twice a second.
+    private val dbgHandler = Handler(Looper.getMainLooper())
+    private var framesSeen = 0L
+    private var wakeErrors = 0
+    private var lastWakeErr: String? = null
+
+    private val dbgTick = object : Runnable {
+        override fun run() {
+            val w = if (::wake.isInitialized) wake else null
+            val c = if (::conn.isInitialized) conn else null
+            val line = buildString {
+                append("state=").append(state)
+                append(" | ws=").append(c?.state ?: "?")
+                append(" | frames=").append(framesSeen)
+                append(" | rms=").append("%.0f".format(lastSpeechRms))
+                append(" | score=").append("%.3f".format(w?.lastScore ?: 0f))
+                append(" | armed=").append(w?.armed ?: false)
+                lastWakeErr?.let { append(" | ERR=").append(it) }
+            }
+            ui.onDebug(line)
+            dbgHandler.postDelayed(this, 500)
+        }
+    }
+
     fun start() {
         audio = AudioEngine(::onAudioFrame)
         wake = WakeWordDetector(context).also { it.start() }
@@ -58,9 +86,11 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
         conn.connect()
         setState(STANDBY)
         audio.start()
+        dbgHandler.post(dbgTick)
     }
 
     fun stop() {
+        dbgHandler.removeCallbacks(dbgTick)
         setState(OFFLINE)
         conn.disconnect()
         audio.stop()
@@ -83,15 +113,17 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
     private fun loadEndpoints(): List<String> {
         val saved = prefs.getString("endpoints", null)
         if (!saved.isNullOrBlank()) return saved.split(",").map { it.trim() }.filter { it.isNotBlank() }
-        // Default: Tailscale MagicDNS name of the PC + common LAN fallback.
+        // Default: Tailscale IP of the PC + MagicDNS fallback.
         return listOf(
-            "ws://hermes-pc:8765/voice",
-            "ws://100.100.100.100:8765/voice" // placeholder until user sets real tailnet IP
+            "ws://100.97.83.70:8765/voice",
+            "ws://hermes-pc:8765/voice"
         )
     }
 
     /** All mic frames flow through here — the single dispatch point. */
     private fun onAudioFrame(frame: ShortArray, streaming: Boolean) {
+        framesSeen++
+        lastSpeechRms = audio.rms(frame)
         when (state) {
             STANDBY -> {
                 if (wake.feed(frame)) {
@@ -106,11 +138,21 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
         }
     }
 
+    private fun pcm16ToBytes(frame: ShortArray): ByteArray {
+        val out = ByteArray(frame.size * 2)
+        for (i in frame.indices) {
+            out[i * 2] = (frame[i].toInt() and 0xFF).toByte()
+            out[i * 2 + 1] = (frame[i].toInt() shr 8).toByte()
+        }
+        return out
+    }
+
     private fun onWake() {
         if (conn.state != "CONNECTED") { setState(STANDBY); return }
         wake.reset()
         tts?.stopNow()               // interrupt any playback ("Jarvis" barge-in, spec §34)
         silenceFrames = 0; speechStarted = false
+        sessionStartNanos = System.nanoTime()
         conn.sendAudioStart()
         setState(LISTENING)
     }
@@ -151,40 +193,24 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
         setState(THINKING)
     }
 
-    override fun onResponseText(text: String) {}
-
-    override fun onTtsChunk(pcm: ByteArray) {
-        if (state == THINKING || state == TRANSCRIBING) setState(SPEAKING)
-        tts?.enqueue(pcm)
+    override fun onResponseText(text: String) {
+        tts?.speak(text) {
+            ttsEndAt = System.currentTimeMillis()
+            setState(STANDBY)
+        }
+        setState(SPEAKING)
     }
 
-    override fun onTtsEnd() {
-        ttsEndAt = System.currentTimeMillis()
-        // Conversation mode: brief pause, then back to standby (wake required again).
-        Thread { Thread.sleep(CONVERSATION_WINDOW_MS); if (state == SPEAKING) setState(STANDBY) }.start()
-        setState(STANDBY)
-        tts?.stopNow()
-    }
+    override fun onTtsChunk(pcm: ByteArray) { tts?.feed(pcm) }
+    override fun onTtsEnd() { tts?.markEnded() }
 
-    /** User tapped "stop" or said a barge-in keyword during SPEAKING. */
     fun interrupt() {
         tts?.stopNow()
         conn.sendInterrupt()
-        setState(STANDBY)
-    }
-
-    private fun pcm16ToBytes(frame: ShortArray): ByteArray {
-        val b = ByteArray(frame.size * 2)
-        for (i in frame.indices) {
-            b[2 * i] = (frame[i].toInt() and 0xFF).toByte()
-            b[2 * i + 1] = (frame[i].toInt() shr 8).toByte()
-        }
-        return b
+        if (state == SPEAKING || state == THINKING) setState(STANDBY)
     }
 
     private fun setState(s: String) {
-        if (s == state) return
-        if ((state == LISTENING) && s != LISTENING && s != TRANSCRIBING) conn.sendAudioEnd()
         state = s
         ui.onStateChanged(s)
     }

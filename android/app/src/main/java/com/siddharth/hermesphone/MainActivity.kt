@@ -3,7 +3,7 @@ package com.siddharth.hermesphone
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
+import android.graphics.Color
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -15,12 +15,13 @@ import androidx.core.content.ContextCompat
 
 /**
  * Deliberately minimal UI (spec §31): status, one toggle, pairing + endpoint fields,
- * and a collapsible debug section (spec §32). Not a developer dashboard.
+ * and a live debug overlay showing mic/wake/ws internals.
  */
 class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
 
     private lateinit var statusView: TextView
     private lateinit var transcriptView: TextView
+    private lateinit var debugView: TextView
     private lateinit var toggleBtn: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,6 +40,12 @@ class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
         statusView = TextView(this).apply { text = "● Offline"; textSize = 18f }
         transcriptView = TextView(this).apply { textSize = 16f }
         toggleBtn = Button(this).apply { text = "Start Jarvis" }
+        debugView = TextView(this).apply {
+            textSize = 12f
+            setTextColor(Color.LTGRAY)
+            // allow horizontal scrolling of long debug lines
+            setHorizontallyScrolling(true)
+        }
 
         root.addView(title)
         root.addView(statusView)
@@ -69,6 +76,11 @@ class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
         root.addView(codeInput)
         root.addView(epInput)
         root.addView(saveBtn)
+
+        // --- live debug overlay ---
+        root.addView(TextView(this).apply { text = "\nDebug"; textSize = 14f })
+        root.addView(debugView)
+
         setContentView(root)
 
         toggleBtn.setOnClickListener { toggleVoice() }
@@ -79,6 +91,7 @@ class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
             startService(Intent(this, VoiceService::class.java).setAction("STOP"))
             toggleBtn.text = "Start Jarvis"
             statusView.text = "● Offline"
+            debugView.text = ""
         } else {
             if (!hasMicPermission()) { requestMic(); return }
             ContextCompat.startForegroundService(this, Intent(this, VoiceService::class.java))
@@ -97,14 +110,24 @@ class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
     // ---- VoiceEngine.Ui ----
     override fun onStateChanged(state: String) {
         runOnUiThread {
+            // Trust the actual WS state for the label — fixes stale "Offline" display.
+            val wsState = try { VoiceService.engine?.conn?.state } catch (_: Exception) { null }
+            val suffix = when (wsState) {
+                "CONNECTED" -> " (server ✓)"
+                "CONNECTING" -> " (dialing…)"
+                else -> " (no server)"
+            }
             statusView.text = when (state) {
-                VoiceEngine.STANDBY -> "● Connected — say “Jarvis”"
+                VoiceEngine.STANDBY -> "● Ready$suffix — say “Jarvis”"
                 VoiceEngine.LISTENING -> "● Listening…"
                 VoiceEngine.THINKING -> "● Thinking…"
                 VoiceEngine.SPEAKING -> "● Speaking…"
-                "RECONNECTING" -> "● Reconnecting…"
-                else -> "● $state"
+                "RECONNECTING" -> "● Reconnecting…$suffix"
+                else -> "● $state$suffix"
             }
+            statusView.setTextColor(
+                if (wsState == "CONNECTED") Color.parseColor("#2E7D32") else Color.GRAY
+            )
         }
     }
 
@@ -112,5 +135,9 @@ class MainActivity : AppCompatActivity(), VoiceEngine.Ui {
         runOnUiThread {
             transcriptView.text = if (partial) "… $text" else text
         }
+    }
+
+    override fun onDebug(line: String) {
+        runOnUiThread { debugView.text = line }
     }
 }

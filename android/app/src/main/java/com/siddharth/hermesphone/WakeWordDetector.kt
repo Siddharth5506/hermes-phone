@@ -48,6 +48,15 @@ class WakeWordDetector(private val context: Context) {
     /** Last raw wake score, for debug UI. */
     var lastScore = 0f
         private set
+    /** True once the detector has enough history to actually score. */
+    var armed = false
+        private set
+    /** Last inference error message (null if none), for debug UI. */
+    var lastError: String? = null
+        private set
+    /** How many inferences have run successfully. */
+    var inferenceCount = 0L
+        private set
 
     companion object {
         const val SAMPLE_RATE = 16000
@@ -140,7 +149,8 @@ class WakeWordDetector(private val context: Context) {
             }
 
             // 3) Score when we have 16 embeddings
-            if (embHistory.size == EMB_HISTORY_LEN) {
+            armed = embHistory.size >= EMB_HISTORY_LEN
+            if (armed) {
                 val flat = FloatArray(EMB_HISTORY_LEN * 96)
                 var idx = 0
                 for (e in embHistory) for (v in e) flat[idx++] = v
@@ -148,11 +158,13 @@ class WakeWordDetector(private val context: Context) {
                 OnnxTensor.createTensor(env, FloatBuffer.wrap(flat), shape3).use { t ->
                     jarvisSession!!.run(mapOf("x.1" to t)).use { out ->
                         lastScore = (out[0].value as Array<FloatArray>)[0][0]
+                        inferenceCount++
                     }
                 }
             }
-        } catch (_: Exception) {
-            // Inference failure must never crash the audio loop; detector degrades to silent.
+        } catch (e: Exception) {
+            // Never crash the audio loop — but surface the error for the debug overlay.
+            lastError = e.message?.take(80) ?: e.javaClass.simpleName
         }
     }
 
