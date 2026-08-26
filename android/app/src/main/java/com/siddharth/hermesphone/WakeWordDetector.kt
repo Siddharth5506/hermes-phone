@@ -87,9 +87,11 @@ class WakeWordDetector(private val context: Context) {
             val shape2 = longArrayOf(1, f.size.toLong())
             OnnxTensor.createTensor(env, FloatBuffer.wrap(f), shape2).use { t ->
                 melspecSession!!.run(mapOf("input" to t)).use { out ->
-                    val arr = out[0].value as Array<Array<Array<FloatArray>>> // [T,1,32]
-                    for (i in arr.indices) {
-                        melHistory.addLast(arr[i][0])
+                    // output shape: [1, 1, T, 32] -> value is float[1][1][T][32]
+                    val arr = out[0].value as Array<Array<Array<FloatArray>>>
+                    val frames = arr[0][0]
+                    for (i in frames.indices) {
+                        melHistory.addLast(frames[i])
                         while (melHistory.size > MEL_PATCH_FRAMES + 64) melHistory.removeFirst()
                     }
                 }
