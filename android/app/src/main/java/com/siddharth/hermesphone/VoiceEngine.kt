@@ -127,7 +127,9 @@ class VoiceEngine(private val context: Context, private val ui: Ui) :
         framesSeen++
         lastSpeechRms = audio.rms(frame)
         when (state) {
-            STANDBY -> {
+            STANDBY, RECONNECTING_STATE("") -> {
+                // Keep the wake detector hot even while (re)connecting —
+                // a stuck RECONNECTING state must never starve the detector.
                 if (wake.feed(frame)) {
                     setState(WAKE_DETECTED)
                     onWake()
